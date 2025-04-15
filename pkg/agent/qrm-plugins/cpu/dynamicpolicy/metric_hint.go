@@ -22,7 +22,6 @@ func (p *DynamicPolicy) collectNUMAMetrics() {
 	for numaID, subEntries := range p.numaMetrics {
 		for _, resourceName := range []string{consts.MetricCPUUsageContainer, consts.MetricLoad1MinContainer} {
 			value, err := p.getNUMAMeric(numaID, resourceName, machineState)
-
 			if err != nil {
 				general.Errorf("getNUMAMeric failed with error: %v", err)
 				continue
@@ -55,7 +54,6 @@ func (p *DynamicPolicy) getNUMAMeric(numa int, resourceName string, machineState
 	for podUID, containerEntries := range snbEntries {
 		for containerName := range containerEntries {
 			data, err := p.metaServer.GetContainerMetric(podUID, containerName, resourceName)
-
 			if err != nil {
 				return 0.0, fmt.Errorf("fetch metric for container failed: %v", err)
 			}
@@ -117,7 +115,6 @@ func (p *DynamicPolicy) isNUMAOverThreshold(numa int, threshold, request float64
 	}
 
 	used, err := p.numaMetrics[numa][resourceName].AvgAfterTimestampWithCountBound(time.Now().UnixNano()-10*time.Minute.Nanoseconds(), 10)
-
 	if err != nil {
 		return false, fmt.Errorf("get numa metric failed: %v", err)
 	}
