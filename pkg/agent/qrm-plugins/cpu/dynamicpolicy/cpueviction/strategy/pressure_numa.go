@@ -1,4 +1,4 @@
-package trombe
+package strategy
 
 import (
 	"context"
@@ -12,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	pluginapi "github.com/kubewharf/katalyst-api/pkg/protocol/evictionplugin/v1alpha1"
-	"github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/cpu/dynamicpolicy/cpueviction/strategy"
-	"github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/cpu/dynamicpolicy/cpueviction/trombe/metricring"
 	"github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/cpu/dynamicpolicy/state"
 	"github.com/kubewharf/katalyst-core/pkg/config"
 	"github.com/kubewharf/katalyst-core/pkg/consts"
@@ -29,12 +27,12 @@ const EvictionNameNumaCpuPressure = "numa-cpu-pressure-plugin"
 const evictionConditionCPUUsagePressure = "NumaCPUPressure"
 
 const (
-	metricsNameCollectMetricsCalled = "numa_cpu_pressure_usage_collect_metrics_called"
+	metricsNameNumaCollectMetricsCalled = "numa_cpu_pressure_usage_collect_metrics_called"
 	// metricsNamePodRaw  = "numa_cpu_pressure_pod_raw"
 	metricsNameNumaRaw = "numa_cpu_pressure_numa_raw"
 
-	metricsNameThresholdMet = "numa_cpu_pressure_threshold_met"
-	metricsNameGetEvictPods = "numa_cpu_pressure_get_evict_pods"
+	metricsNameNumaThresholdMet = "numa_cpu_pressure_threshold_met"
+	metricsNameGetEvictPods     = "numa_cpu_pressure_get_evict_pods"
 
 	metricNameNumaOverloadNumaCount = "numa_cpu_pressure_overload_numa_count"
 	metricNameNumaOverloadRatio     = "numa_cpu_pressure_overload_ratio"
@@ -62,14 +60,14 @@ type NumaCPUPressureEviction struct {
 	emitter    metrics.MetricEmitter
 	metaServer *metaserver.MetaServer
 
-	conf       *config.Configuration
-	loadConfig *LoadConfig
+	conf               *config.Configuration
+	numaPressureConfig *NumaPressureConfig
 
 	syncPeriod time.Duration
 
 	thresholds map[string]float64
 
-	metricsHistory    *metricring.MetricHistory
+	metricsHistory    *NumaMetricHistory
 	overloadNumaCount int
 
 	enabled bool
@@ -77,21 +75,21 @@ type NumaCPUPressureEviction struct {
 
 func NewCPUPressureUsageEviction(emitter metrics.MetricEmitter, metaServer *metaserver.MetaServer,
 	conf *config.Configuration, _ state.ReadonlyState,
-) (strategy.CPUPressureEviction, error) {
-	loadConfig := &LoadConfig{
-		MetricRingSize:         4,
-		ThresholdMetPercentage: 0.7,
-		GracePeriod:            conf.DynamicAgentConfiguration.GetDynamicConfiguration().DeletionGracePeriod,
-		ExpandFactor:           1.1,
+) (CPUPressureEviction, error) {
+	numaPressureConfig := &NumaPressureConfig{
+		MetricRingSize:         conf.DynamicAgentConfiguration.GetDynamicConfiguration().NumaCpuPressureMetricRingSize,
+		ThresholdMetPercentage: conf.DynamicAgentConfiguration.GetDynamicConfiguration().NumaCpuPressureThresholdMetPercentage,
+		GracePeriod:            conf.DynamicAgentConfiguration.GetDynamicConfiguration().NumaCpuPressureGracePeriod,
+		ExpandFactor:           conf.DynamicAgentConfiguration.GetDynamicConfiguration().NumaCpuThresholdExpandFactor,
 	}
 
 	return &NumaCPUPressureEviction{
-		emitter:        emitter,
-		metaServer:     metaServer,
-		conf:           conf,
-		loadConfig:     loadConfig,
-		metricsHistory: metricring.NewMetricHistory(loadConfig.MetricRingSize),
-		syncPeriod:     15 * time.Second,
+		emitter:            emitter,
+		metaServer:         metaServer,
+		conf:               conf,
+		numaPressureConfig: numaPressureConfig,
+		metricsHistory:     NewMetricHistory(numaPressureConfig.MetricRingSize),
+		syncPeriod:         15 * time.Second,
 	}, nil
 }
 
@@ -118,17 +116,6 @@ func (p *NumaCPUPressureEviction) GetEvictPods(_ context.Context, request *plugi
 		return &pluginapi.GetEvictPodsResponse{}, nil
 	}
 
-	//enabled, err := strategygroup.IsStrategyEnabledForNode(consts.StrategyNameNumaCpuPressureEviction, false, p.conf)
-	//if err != nil {
-	//	general.Errorf("failed to get eviction strategy: %v", err)
-	//	return &pluginapi.GetTopEvictionPodsResponse{}, nil
-	//
-	//}
-	//if !enabled {
-	//	general.Warningf("eviction strategy is disabled")
-	//	return &pluginapi.GetTopEvictionPodsResponse{}, nil
-	//}
-
 	p.Lock()
 	defer p.Unlock()
 
@@ -148,7 +135,7 @@ func (p *NumaCPUPressureEviction) GetEvictPods(_ context.Context, request *plugi
 		return &pluginapi.GetEvictPodsResponse{}, nil
 	}
 
-	topPod, podOverloadRatio, err := p.pickTopOverRatioPod(numaID, targetMetric, request.ActivePods)
+	topPod, podUsageRatio, err := p.pickTopOverRatioPod(numaID, targetMetric, request.ActivePods)
 	if err != nil {
 		general.ErrorS(err, "pick top over ratio nums pods failed")
 		_ = p.emitter.StoreFloat64(metricsNameGetEvictPods, 0, metrics.MetricTypeNameRaw,
@@ -160,21 +147,21 @@ func (p *NumaCPUPressureEviction) GetEvictPods(_ context.Context, request *plugi
 	}
 
 	general.InfoS("evict pod", "pod", topPod.Name, "podUsageRatio",
-		podOverloadRatio, "numa", numaID, "numaOverloadRatio", numaOverloadRatio)
+		podUsageRatio, "numa", numaID, "numaOverloadRatio", numaOverloadRatio)
 
 	resp := &pluginapi.GetEvictPodsResponse{
 		EvictPods: []*pluginapi.EvictPod{
 			{
 				Pod: topPod,
 				Reason: fmt.Sprintf("numa cpu usage %f overload, kill top pod with %f",
-					numaOverloadRatio, podOverloadRatio),
+					numaOverloadRatio, podUsageRatio),
 				ForceEvict:         true,
 				EvictionPluginName: EvictionNameNumaCpuPressure,
 			},
 		},
 	}
 
-	if gracePeriod := p.loadConfig.GracePeriod; gracePeriod >= 0 {
+	if gracePeriod := p.numaPressureConfig.GracePeriod; gracePeriod >= 0 {
 		deletionOptions := &pluginapi.DeletionOptions{
 			GracePeriodSeconds: gracePeriod,
 		}
@@ -194,15 +181,6 @@ func (p *NumaCPUPressureEviction) GetEvictPods(_ context.Context, request *plugi
 
 func (p *NumaCPUPressureEviction) ThresholdMet(_ context.Context, _ *pluginapi.Empty,
 ) (*pluginapi.ThresholdMetResponse, error) {
-	//enabled, err := strategygroup.IsStrategyEnabledForNode(consts.StrategyNameNumaCpuPressureEviction, false, p.conf)
-	//if err != nil {
-	//	general.Errorf("failed to get eviction strategy: %v", err)
-	//	return &pluginapi.ThresholdMetResponse{MetType: pluginapi.ThresholdMetType_NOT_MET}, nil
-	//}
-	//if !enabled {
-	//	general.Warningf("eviction strategy is disabled")
-	//	return &pluginapi.ThresholdMetResponse{MetType: pluginapi.ThresholdMetType_NOT_MET}, nil
-	//}
 	if !p.enabled {
 		general.Infof("numa cpu pressure eviction is disabled")
 		return &pluginapi.ThresholdMetResponse{
@@ -216,7 +194,7 @@ func (p *NumaCPUPressureEviction) ThresholdMet(_ context.Context, _ *pluginapi.E
 	nodeOverload := p.isNodeOverload()
 
 	if !nodeOverload {
-		_ = p.emitter.StoreFloat64(metricsNameThresholdMet, 0, metrics.MetricTypeNameRaw,
+		_ = p.emitter.StoreFloat64(metricsNameNumaThresholdMet, 0, metrics.MetricTypeNameRaw,
 			metrics.ConvertMapToTags(map[string]string{
 				metricTagMetricName: targetMetric,
 			})...)
@@ -225,7 +203,7 @@ func (p *NumaCPUPressureEviction) ThresholdMet(_ context.Context, _ *pluginapi.E
 		}, nil
 	}
 
-	_ = p.emitter.StoreFloat64(metricsNameThresholdMet, 1, metrics.MetricTypeNameRaw,
+	_ = p.emitter.StoreFloat64(metricsNameNumaThresholdMet, 1, metrics.MetricTypeNameRaw,
 		metrics.ConvertMapToTags(map[string]string{
 			metricTagMetricName: targetMetric,
 		})...)
@@ -261,7 +239,7 @@ func (p *NumaCPUPressureEviction) update(_ context.Context) {
 		return
 	}
 
-	_ = p.emitter.StoreInt64(metricsNameCollectMetricsCalled, 1, metrics.MetricTypeNameRaw)
+	_ = p.emitter.StoreInt64(metricsNameNumaCollectMetricsCalled, 1, metrics.MetricTypeNameRaw)
 
 	sharedPods, err := p.metaServer.GetPodList(context.Background(), func(pod *v1.Pod) bool {
 		isValid, err := p.conf.QoSConfiguration.CheckSharedQoSForPod(pod)
@@ -323,30 +301,6 @@ func (p *NumaCPUPressureEviction) update(_ context.Context) {
 
 	// update overload numa count and node overload
 	p.overloadNumaCount = p.calOverloadNumaCount()
-
-	//// collect numa usage ring
-	//// numa -> usage
-	//// only facing numa binding scenario
-	//for numaID := 0; numaID < p.metaServer.NumNUMANodes; numaID++ {
-	//	metricCPUUsageNuma, err := p.metaServer.GetNumaMetric(numaID, targetMetric)
-	//	if err != nil {
-	//		general.Errorf("GetNumaMetric for numa: %d failed with error: %v", numaID, err)
-	//		continue
-	//	}
-	//	if p.numaMetricsHistory[numaID] == nil {
-	//		p.numaMetricsHistory[numaID] = CreateMetricRing(p.evictionStrategy.MetricRingSize)
-	//	}
-	//	snapshot := &MetricSnapshot{
-	//		Info: MetricInfo{
-	//			Name:       targetMetric,
-	//			Value:      metricCPUUsageNuma.Value,
-	//			LowerBound: p.threshold,
-	//			UpperBound: p.threshold,
-	//		},
-	//		Time: collectTime,
-	//	}
-	//	p.numaMetricsHistory[numaID].Push(snapshot)
-	//}
 }
 
 func (p *NumaCPUPressureEviction) isNodeOverload() (nodeOverload bool) {
@@ -361,12 +315,12 @@ func (p *NumaCPUPressureEviction) isNodeOverload() (nodeOverload bool) {
 
 func (p *NumaCPUPressureEviction) calOverloadNumaCount() (overloadNumaCount int) {
 	thresholds := p.thresholds
-	thresholdMetPercentage := p.loadConfig.ThresholdMetPercentage
+	thresholdMetPercentage := p.numaPressureConfig.ThresholdMetPercentage
 	metricsHistory := p.metricsHistory
 	emitter := p.emitter
 
 	for numaID, numaHis := range metricsHistory.Inner {
-		numaHisInner := numaHis[metricring.FakePodUID]
+		numaHisInner := numaHis[FakePodUID]
 		var numaOver bool
 		for metricName, metricRing := range numaHisInner {
 			threshold, exist := thresholds[metricName]
@@ -415,7 +369,7 @@ func (p *NumaCPUPressureEviction) pickTopOverRatioNuma(metricName string, thresh
 	var numaOverRatios []NumaOverRatio
 
 	for numaID, numaHis := range p.metricsHistory.Inner {
-		numaHisInner := numaHis[metricring.FakePodUID]
+		numaHisInner := numaHis[FakePodUID]
 		metricRing, ok := numaHisInner[metricName]
 		if !ok {
 			continue
@@ -492,7 +446,7 @@ func (p *NumaCPUPressureEviction) pickTopOverRatioPod(numaID int, metricName str
 	return nil, 0, fmt.Errorf("cannot find any pod to be evicted")
 }
 
-type LoadConfig struct {
+type NumaPressureConfig struct {
 	MetricRingSize          int
 	ThresholdMetPercentage  float64
 	NumaThresholdPercentage float64

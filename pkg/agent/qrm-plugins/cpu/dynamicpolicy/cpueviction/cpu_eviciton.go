@@ -26,7 +26,6 @@ import (
 	"github.com/kubewharf/katalyst-api/pkg/plugins/skeleton"
 	"github.com/kubewharf/katalyst-core/cmd/katalyst-agent/app/agent"
 	"github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/cpu/dynamicpolicy/cpueviction/strategy"
-	"github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/cpu/dynamicpolicy/cpueviction/trombe"
 	"github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/cpu/dynamicpolicy/state"
 	"github.com/kubewharf/katalyst-core/pkg/config"
 	"github.com/kubewharf/katalyst-core/pkg/metaserver"
@@ -36,7 +35,7 @@ import (
 func init() {
 	RegisterCPUEvictionInitializer(strategy.EvictionNameLoad, strategy.NewCPUPressureLoadEviction)
 	RegisterCPUEvictionInitializer(strategy.EvictionNameSuppression, strategy.NewCPUPressureSuppressionEviction)
-	RegisterCPUEvictionInitializer(trombe.EvictionNameNumaCpuPressure, trombe.NewCPUPressureUsageEviction)
+	RegisterCPUEvictionInitializer(strategy.EvictionNameNumaCpuPressure, strategy.NewCPUPressureUsageEviction)
 }
 
 var cpuEvictionInitializers sync.Map

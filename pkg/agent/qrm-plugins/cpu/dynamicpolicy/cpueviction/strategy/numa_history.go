@@ -1,4 +1,4 @@
-package metricring
+package strategy
 
 import (
 	"time"
@@ -8,20 +8,20 @@ const (
 	FakePodUID = ""
 )
 
-type MetricHistory struct {
+type NumaMetricHistory struct {
 	// numa -> pod -> metric -> ring
 	Inner    map[int]map[string]map[string]*MetricRing
 	RingSize int
 }
 
-func NewMetricHistory(ringSize int) *MetricHistory {
-	return &MetricHistory{
+func NewMetricHistory(ringSize int) *NumaMetricHistory {
+	return &NumaMetricHistory{
 		Inner:    make(map[int]map[string]map[string]*MetricRing),
 		RingSize: ringSize,
 	}
 }
 
-func (m *MetricHistory) Push(numaID int, podUID string, metricName string, podMetric float64) {
+func (m *NumaMetricHistory) Push(numaID int, podUID string, metricName string, podMetric float64) {
 	collectTime := time.Now().UnixNano()
 
 	if m.Inner[numaID] == nil {
@@ -43,6 +43,6 @@ func (m *MetricHistory) Push(numaID int, podUID string, metricName string, podMe
 	m.Inner[numaID][podUID][metricName].Push(snapshot)
 }
 
-func (m *MetricHistory) PushNuma(numaID int, metricName string, podMetric float64) {
+func (m *NumaMetricHistory) PushNuma(numaID int, metricName string, podMetric float64) {
 	m.Push(numaID, FakePodUID, metricName, podMetric)
 }
