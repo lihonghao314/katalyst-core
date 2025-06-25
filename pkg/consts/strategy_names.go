@@ -46,6 +46,9 @@ const (
 	// StrategyNameNumaCpuPressureEviction is the name of numa_cpu_pressure_eviction strategy,
 	// it evicts pods with high cpu pressure on numa nodes.
 	StrategyNameNumaCpuPressureEviction = "numa_cpu_pressure_eviction"
+
+	// todo
+	StrategyNameDisableIsolation = "disable_isolation"
 )
 
 const (

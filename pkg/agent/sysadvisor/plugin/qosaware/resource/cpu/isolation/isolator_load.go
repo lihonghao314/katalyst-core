@@ -34,6 +34,7 @@ import (
 	"github.com/kubewharf/katalyst-core/pkg/metaserver"
 	"github.com/kubewharf/katalyst-core/pkg/metrics"
 	"github.com/kubewharf/katalyst-core/pkg/util/general"
+	"github.com/kubewharf/katalyst-core/pkg/util/strategygroup"
 )
 
 type containerIsolationState struct {
@@ -60,7 +61,8 @@ type poolIsolationStates struct {
 
 // LoadIsolator decides isolation states based on cpu-load for containers
 type LoadIsolator struct {
-	conf *cpu.CPUIsolationConfiguration
+	isolationConfiguration *cpu.CPUIsolationConfiguration
+	conf                   *config.Configuration
 
 	emitter    metrics.MetricEmitter
 	metaReader metacache.MetaReader
@@ -76,7 +78,8 @@ func NewLoadIsolator(conf *config.Configuration, _ interface{}, emitter metrics.
 	metaCache metacache.MetaReader, metaServer *metaserver.MetaServer,
 ) Isolator {
 	return &LoadIsolator{
-		conf: conf.CPUIsolationConfiguration,
+		isolationConfiguration: conf.CPUIsolationConfiguration,
+		conf:                   conf,
 
 		emitter:    emitter,
 		metaReader: metaCache,
@@ -87,7 +90,13 @@ func NewLoadIsolator(conf *config.Configuration, _ interface{}, emitter metrics.
 }
 
 func (l *LoadIsolator) GetIsolatedPods() []string {
-	if l.conf.IsolationDisabled {
+	if l.isolationConfiguration.IsolationDisabled {
+		return []string{}
+	}
+
+	disableIsolation, _ := strategygroup.IsStrategyEnabledForNode(metric_consts.StrategyNameDisableIsolation, true, l.conf)
+	if disableIsolation {
+		general.Infof("isolation disabled by sgc")
 		return []string{}
 	}
 
@@ -101,7 +110,7 @@ func (l *LoadIsolator) GetIsolatedPods() []string {
 	existed := sets.NewString()
 	for _, ci := range l.getSortedContainerInfo() {
 		// if isolation is disabled from the certain pool, mark as none-isolated and trigger container clear
-		if l.conf.IsolationDisabledPools.Has(l.configTranslator.Translate(ci.OriginOwnerPoolName)) {
+		if l.isolationConfiguration.IsolationDisabledPools.Has(l.configTranslator.Translate(ci.OriginOwnerPoolName)) {
 			continue
 		}
 
@@ -160,16 +169,17 @@ func (l *LoadIsolator) checkContainerLoad(info *types.ContainerInfo) bool {
 	state := l.getIsolationState(info)
 
 	r := getMaxContainerResource(info)
-	loadBeyondTarget := m.Value > r*float64(l.conf.IsolationCPURatio) || m.Value > r+float64(l.conf.IsolationCPUSize)
+
+	loadBeyondTarget := m.Value > r*float64(l.isolationConfiguration.IsolationCPURatio) || m.Value > r+float64(l.isolationConfiguration.IsolationCPUSize)
 	if loadBeyondTarget {
 		// reset lock-out observed and add up lock-in hits
-		if state.lockedInHits < l.conf.IsolationLockInThreshold {
+		if state.lockedInHits < l.isolationConfiguration.IsolationLockInThreshold {
 			state.lockedInHits++
 		}
 		state.lockedOutFirstObserved = nil
 
 		general.Infof("pod %v container %v exceeds load", info.PodName, info.ContainerName)
-		return info.Isolated || state.lockedInHits >= l.conf.IsolationLockInThreshold
+		return info.Isolated || state.lockedInHits >= l.isolationConfiguration.IsolationLockInThreshold
 	} else {
 		// reset lock-in hits and set lock-out observed (if needed)
 		now := time.Now()
@@ -178,7 +188,7 @@ func (l *LoadIsolator) checkContainerLoad(info *types.ContainerInfo) bool {
 			state.lockedOutFirstObserved = &now
 		}
 
-		return info.Isolated && state.lockedOutFirstObserved.Add(time.Second*time.Duration(l.conf.IsolationLockOutPeriodSecs)).After(now)
+		return info.Isolated && state.lockedOutFirstObserved.Add(time.Second*time.Duration(l.isolationConfiguration.IsolationLockOutPeriodSecs)).After(now)
 	}
 }
 
@@ -218,16 +228,16 @@ func (l *LoadIsolator) initIsolationStates() map[string]*poolIsolationStates {
 		// init for corresponding pool
 		if _, ok := isolationResources[ci.OriginOwnerPoolName]; !ok {
 			state := &poolIsolationStates{
-				maxResourceRatio: l.conf.IsolatedMaxResourceRatio,
-				maxPodRatio:      l.conf.IsolatedMaxPodRatio,
+				maxResourceRatio: l.isolationConfiguration.IsolatedMaxResourceRatio,
+				maxPodRatio:      l.isolationConfiguration.IsolatedMaxPodRatio,
 				podResources:     make(map[string]float64),
 				isolatedPods:     sets.NewString(),
 			}
 
-			if ratio, ratioOK := l.conf.IsolatedMaxPoolResourceRatios[isolationConfigKey]; ratioOK {
+			if ratio, ratioOK := l.isolationConfiguration.IsolatedMaxPoolResourceRatios[isolationConfigKey]; ratioOK {
 				state.maxResourceRatio = ratio
 			}
-			if ratio, ratioOK := l.conf.IsolatedMaxPoolPodRatios[isolationConfigKey]; ratioOK {
+			if ratio, ratioOK := l.isolationConfiguration.IsolatedMaxPoolPodRatios[isolationConfigKey]; ratioOK {
 				state.maxPodRatio = ratio
 			}
 

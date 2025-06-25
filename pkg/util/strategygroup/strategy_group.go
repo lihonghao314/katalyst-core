@@ -30,6 +30,7 @@ import (
 // These strategies are considered essential and will always be active.
 var mandatoryEnabledStrategies = sets.NewString(
 	consts.StrategyNameBorweinV2,
+	consts.StrategyNameDisableIsolation,
 )
 
 func validateConf(conf *config.Configuration) (*strategygroup.StrategyGroupConfiguration, error) {
