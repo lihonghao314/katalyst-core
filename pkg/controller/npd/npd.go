@@ -140,6 +140,7 @@ func (nc *NPDController) initializeMetricsPlugins(controlCtx *katalystbase.Gener
 
 	initializers := metrics_plugin.GetPluginInitializers()
 	for _, pluginName := range nc.conf.NPDMetricsPlugins {
+		klog.Infof("[npd] found plugin from conf %v", pluginName)
 		if initFunc, ok := initializers[pluginName]; ok {
 			plugin, err := initFunc(nc.ctx, nc.conf, extraConf, controlCtx, metricsManager)
 			if err != nil {
@@ -176,6 +177,8 @@ func (nc *NPDController) initializeMetricsPlugins(controlCtx *katalystbase.Gener
 					}
 				}
 			}
+		} else {
+			klog.Infof("[npd] initializers cannot be found %v", pluginName)
 		}
 	}
 

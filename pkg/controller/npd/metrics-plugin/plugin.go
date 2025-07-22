@@ -22,6 +22,7 @@ import (
 
 	katalystbase "github.com/kubewharf/katalyst-core/cmd/base"
 	"github.com/kubewharf/katalyst-core/pkg/config/controller"
+	"k8s.io/klog/v2"
 )
 
 type MetricsPlugin interface {
@@ -39,6 +40,7 @@ type InitFunc func(ctx context.Context, conf *controller.NPDConfig, extraConf in
 
 // RegisterPluginInitializer is used to register user-defined metrics plugins
 func RegisterPluginInitializer(name string, initFunc InitFunc) {
+	klog.Infof("Register plugin initializer %v", name)
 	pluginInitializers.Store(name, initFunc)
 }
 
@@ -47,6 +49,7 @@ func GetPluginInitializers() map[string]InitFunc {
 	plugins := make(map[string]InitFunc)
 	pluginInitializers.Range(func(key, value any) bool {
 		plugins[key.(string)] = value.(InitFunc)
+		klog.Infof("got plugin initializer %v", key)
 		return true
 	})
 	return plugins
