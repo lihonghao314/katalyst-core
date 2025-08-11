@@ -21,7 +21,9 @@ import (
 	"github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/commonstate"
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/types"
 	"github.com/kubewharf/katalyst-core/pkg/metrics"
+	"github.com/kubewharf/katalyst-core/pkg/util/cgroup/common"
 	"github.com/kubewharf/katalyst-core/pkg/util/machine"
+	"strconv"
 )
 
 // QoSRegion is internal abstraction, managing a group of containers with similar QoS sensitivity
@@ -105,6 +107,7 @@ func GetRegionBasicMetricTags(r QoSRegion) []metrics.MetricTag {
 		{Key: "headroom_policy_prior", Val: string(headroomPolicyPrior)},
 		{Key: "headroom_policy_in_use", Val: string(headroomPolicyInUse)},
 		{Key: "bound_type", Val: string(r.GetStatus().BoundType)},
+		{Key: "cgroupv2", Val: strconv.FormatBool(common.CheckCgroup2UnifiedMode())},
 	}
 
 	for k, v := range r.GetStatus().OvershootStatus {

@@ -43,6 +43,7 @@ import (
 	"github.com/kubewharf/katalyst-core/pkg/config"
 	"github.com/kubewharf/katalyst-core/pkg/metaserver"
 	"github.com/kubewharf/katalyst-core/pkg/metrics"
+	"github.com/kubewharf/katalyst-core/pkg/util/cgroup/common"
 	"github.com/kubewharf/katalyst-core/pkg/util/general"
 	"github.com/kubewharf/katalyst-core/pkg/util/machine"
 )
@@ -574,7 +575,6 @@ func (cra *cpuResourceAdvisor) emitMetrics(calculationResult types.InternalCPUCa
 	// emit region indicator related metrics
 	for _, r := range cra.regionMap {
 		tags := region.GetRegionBasicMetricTags(r)
-
 		_ = cra.emitter.StoreInt64(metricRegionStatus, int64(cra.period.Seconds()), metrics.MetricTypeNameCount, tags...)
 
 		indicators := r.GetControlEssentials().Indicators
@@ -591,11 +591,13 @@ func (cra *cpuResourceAdvisor) emitMetrics(calculationResult types.InternalCPUCa
 			_ = cra.emitter.StoreInt64(metricCPUAdvisorPoolSize, int64(cpuResource.Size), metrics.MetricTypeNameRaw,
 				metrics.MetricTag{Key: "name", Val: poolName},
 				metrics.MetricTag{Key: "numa_id", Val: strconv.Itoa(numaID)},
-				metrics.MetricTag{Key: "pool_type", Val: commonstate.GetPoolType(poolName)})
+				metrics.MetricTag{Key: "pool_type", Val: commonstate.GetPoolType(poolName)},
+				metrics.MetricTag{Key: "cgroupv2", Val: strconv.FormatBool(common.CheckCgroup2UnifiedMode())})
 			_ = cra.emitter.StoreFloat64(metricCPUAdvisorPoolQuota, cpuResource.Quota, metrics.MetricTypeNameRaw,
 				metrics.MetricTag{Key: "name", Val: poolName},
 				metrics.MetricTag{Key: "numa_id", Val: strconv.Itoa(numaID)},
-				metrics.MetricTag{Key: "pool_type", Val: commonstate.GetPoolType(poolName)})
+				metrics.MetricTag{Key: "pool_type", Val: commonstate.GetPoolType(poolName)},
+				metrics.MetricTag{Key: "cgroupv2", Val: strconv.FormatBool(common.CheckCgroup2UnifiedMode())})
 		}
 	}
 }

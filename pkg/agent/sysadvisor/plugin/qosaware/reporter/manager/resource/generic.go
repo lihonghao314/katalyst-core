@@ -33,6 +33,7 @@ import (
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/types"
 	"github.com/kubewharf/katalyst-core/pkg/metaserver"
 	"github.com/kubewharf/katalyst-core/pkg/metrics"
+	"github.com/kubewharf/katalyst-core/pkg/util/cgroup/common"
 	"github.com/kubewharf/katalyst-core/pkg/util/general"
 )
 
@@ -291,11 +292,13 @@ func (m *GenericHeadroomManager) sync(_ context.Context) {
 
 func (m *GenericHeadroomManager) emitResourceToMetric(metricsName string, value resource.Quantity) {
 	_ = m.emitter.StoreInt64(metricsName, value.Value(), metrics.MetricTypeNameRaw,
-		metrics.MetricTag{Key: "resourceName", Val: string(m.resourceName)})
+		metrics.MetricTag{Key: "resourceName", Val: string(m.resourceName)},
+		metrics.MetricTag{Key: "cgroupv2", Val: strconv.FormatBool(common.CheckCgroup2UnifiedMode())})
 }
 
 func (m *GenericHeadroomManager) emitNUMAResourceToMetric(numaID int, metricsName string, value resource.Quantity) {
 	_ = m.emitter.StoreInt64(metricsName, value.Value(), metrics.MetricTypeNameRaw,
 		metrics.MetricTag{Key: "resourceName", Val: string(m.resourceName)},
-		metrics.MetricTag{Key: "numa", Val: strconv.Itoa(numaID)})
+		metrics.MetricTag{Key: "numa", Val: strconv.Itoa(numaID)},
+		metrics.MetricTag{Key: "cgroupv2", Val: strconv.FormatBool(common.CheckCgroup2UnifiedMode())})
 }

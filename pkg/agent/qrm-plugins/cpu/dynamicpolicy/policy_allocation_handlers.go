@@ -36,6 +36,7 @@ import (
 	cpuutil "github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/cpu/util"
 	"github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/util"
 	"github.com/kubewharf/katalyst-core/pkg/metrics"
+	"github.com/kubewharf/katalyst-core/pkg/util/cgroup/common"
 	"github.com/kubewharf/katalyst-core/pkg/util/general"
 	"github.com/kubewharf/katalyst-core/pkg/util/machine"
 	"github.com/kubewharf/katalyst-core/pkg/util/native"
@@ -1076,7 +1077,8 @@ func (p *DynamicPolicy) applyPoolsAndIsolatedInfo(poolsCPUSet map[string]machine
 			_ = p.emitter.StoreInt64(util.MetricNamePoolSize, int64(cpus.Size()),
 				metrics.MetricTypeNameRaw, metrics.MetricTag{Key: "poolName", Val: poolName},
 				metrics.MetricTag{Key: "pool_type", Val: commonstate.GetPoolType(poolName)},
-				metrics.MetricTag{Key: "numa_id", Val: strconv.Itoa(numaID)})
+				metrics.MetricTag{Key: "numa_id", Val: strconv.Itoa(numaID)},
+				metrics.MetricTag{Key: "cgroupv2", Val: strconv.FormatBool(common.CheckCgroup2UnifiedMode())})
 		}
 	}
 

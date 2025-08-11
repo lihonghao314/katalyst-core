@@ -48,6 +48,7 @@ import (
 	"github.com/kubewharf/katalyst-core/pkg/util/general"
 	"github.com/kubewharf/katalyst-core/pkg/util/machine"
 	"github.com/kubewharf/katalyst-core/pkg/util/native"
+	"strconv"
 )
 
 const (
@@ -63,6 +64,8 @@ const (
 	metricTagKeyRegionNUMAs       = "region_numas"
 	metricTagKeyControlKnobName   = "control_knob_name"
 	metricTagKeyControlKnobAction = "control_knob_action"
+	metricTagKeyCgroupV2          = "cgroupv2"
+	metricTagKeyBindingNumas      = "binding_numas"
 )
 
 type internalPolicyState struct {
@@ -660,6 +663,8 @@ func (r *QoSRegionBase) getProvisionControlKnob() map[types.CPUProvisionPolicyNa
 				{Key: metricTagKeyPolicyName, Val: string(internal.name)},
 				{Key: metricTagKeyControlKnobName, Val: string(name)},
 				{Key: metricTagKeyControlKnobAction, Val: string(value.Action)},
+				{Key: metricTagKeyCgroupV2, Val: strconv.FormatBool(common.CheckCgroup2UnifiedMode())},
+				{Key: metricTagKeyBindingNumas, Val: r.GetBindingNumas().String()},
 			}...)
 
 			klog.InfoS("[qosaware-cpu] get raw control knob", "meta", r.getMetaInfo(), "policy", internal.name,
@@ -720,6 +725,8 @@ func (r *QoSRegionBase) regulateProvisionControlKnob(originControlKnob map[types
 				{Key: metricTagKeyPolicyName, Val: string(policy)},
 				{Key: metricTagKeyControlKnobName, Val: string(knob)},
 				{Key: metricTagKeyControlKnobAction, Val: string(value.Action)},
+				{Key: metricTagKeyCgroupV2, Val: strconv.FormatBool(common.CheckCgroup2UnifiedMode())},
+				{Key: metricTagKeyBindingNumas, Val: r.GetBindingNumas().String()},
 			}...)
 			klog.InfoS("[qosaware-cpu] get regulated control knob", "region", r.name, "bindingNumas", r.bindingNumas.String(),
 				"policy", policy, "knob", knob, "action", value.Action, "value", value.Value)
