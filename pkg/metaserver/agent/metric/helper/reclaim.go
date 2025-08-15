@@ -36,10 +36,12 @@ type ReclaimMetrics struct {
 	Size int
 	// reclaimedCoresSupply is the actual CPU resource can be supplied to reclaimed cores
 	ReclaimedCoresSupply float64
+	// Request is the total cpu request of reclaim pods
+	Request float64
 }
 
 // GetReclaimMetrics returns the reclaim CPU metrics for the given cpus and cgroupPath
-func GetReclaimMetrics(cpus machine.CPUSet, cgroupPath string, metricsFetcher types.MetricsFetcher) (*ReclaimMetrics, error) {
+func GetReclaimMetrics(cpus machine.CPUSet, cgroupPath string, metricsFetcher types.MetricsFetcher, request float64) (*ReclaimMetrics, error) {
 	data := metricsFetcher.AggregateCoreMetric(cpus, pkgconsts.MetricCPUUsageRatio, metric.AggregatorSum)
 	poolCPUUsage := data.Value
 
@@ -78,5 +80,6 @@ func GetReclaimMetrics(cpus machine.CPUSet, cgroupPath string, metricsFetcher ty
 		CgroupCPUQuota:       cfsQuota,
 		Size:                 cpus.Size(),
 		ReclaimedCoresSupply: reclaimedCoresSupply,
+		Request:              request,
 	}, nil
 }

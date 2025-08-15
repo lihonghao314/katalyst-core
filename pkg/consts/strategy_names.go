@@ -54,3 +54,8 @@ const (
 const (
 	StrategyNameSpliter = ","
 )
+
+const (
+	StrategyParamBorweinV2         = "borwein_v2"
+	StrategyParamBorweinV2Enhanced = "borwein_v2_enhanced"
+)
