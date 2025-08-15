@@ -239,9 +239,17 @@ func (bc *BorweinController) ResetIndicatorOffsets() {
 func fetchBorweinV2Strategy(conf *config.Configuration) (*latencyregression.BorweinStrategy, error) {
 	// get strategy
 	strategyName := consts.StrategyNameBorweinV2
-	strategyContent, enabled, err := strategygroup.GetSpecificStrategyParam(strategyName, conf.EnableBorweinV2, conf)
+	strategyParamName := consts.StrategyParamBorweinV2
+
+	// when metric_threshold enabled, use enhanced strategy param
+	if metricThresholdEnabled, _ := strategygroup.IsStrategyEnabledForNode(consts.StrategyNameMetricThreshold,
+		conf.EnableBorweinV2, conf); metricThresholdEnabled {
+		strategyParamName = consts.StrategyParamBorweinV2Enhanced
+	}
+
+	strategyContent, enabled, err := strategygroup.GetSpecificStrategyParam(strategyName, strategyParamName, conf.EnableBorweinV2, conf)
 	if err != nil {
-		return nil, fmt.Errorf("get %v grep param error: %v", strategyName, err)
+		return nil, fmt.Errorf("get %v param error: %v", strategyName, err)
 	}
 	if !enabled {
 		return nil, fmt.Errorf("%v strategy is not enabled", strategyName)
@@ -255,7 +263,7 @@ func fetchBorweinV2Strategy(conf *config.Configuration) (*latencyregression.Borw
 	if len(strategy.StrategySlots) == 0 {
 		return nil, fmt.Errorf("strategy slots is empty")
 	}
-	general.Infof("%v strategy: %+v", strategyName, strategy)
+	general.Infof("%v %v strategy: %+v", strategyName, strategyParamName, strategy)
 	return &strategy, nil
 }
 
