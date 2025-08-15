@@ -137,11 +137,11 @@ func getMetricThresholdFromConf(metaServer *metaserver.MetaServer,
 func getAndValidate(thresholdName string, thresholds map[string]float64) *float64 {
 	threshold, ok := thresholds[thresholdName]
 	if !ok || threshold == 0 {
-		general.Errorf("got empty threshold for %v", thresholdName)
+		general.Warningf("got empty threshold for %v", thresholdName)
 		return nil
 	}
 	if threshold < Min {
-		general.Errorf("threshold %v is too small", thresholdName)
+		general.Warningf("threshold %v is too small", thresholdName)
 		return nil
 	}
 	return &threshold

@@ -148,7 +148,7 @@ func (p *CPUPressureSuppression) evictNonActualNUMABindingPods(now time.Time, fi
 	}
 
 	// get reclaim metrics
-	reclaimMetrics, err := helper.GetReclaimMetrics(nonActualNUMABindingCPUSet, p.conf.ReclaimRelativeRootCgroupPath, p.metaServer.MetricsFetcher)
+	reclaimMetrics, err := helper.GetReclaimMetrics(nonActualNUMABindingCPUSet, p.conf.ReclaimRelativeRootCgroupPath, p.metaServer.MetricsFetcher, 0)
 	if err != nil {
 		return nil, fmt.Errorf("get reclaim metrics failed: %s", err)
 	}
@@ -180,7 +180,7 @@ func (p *CPUPressureSuppression) evictActualNUMABindingPods(now time.Time, filte
 
 		// get reclaim metrics
 		reclaimMetrics, err := helper.GetReclaimMetrics(actualNUMABindingCPUSet,
-			reclaimRelativeRootCgroupPath, p.metaServer.MetricsFetcher)
+			reclaimRelativeRootCgroupPath, p.metaServer.MetricsFetcher, 0)
 		if err != nil {
 			return nil, fmt.Errorf("get reclaim metrics failed: %s", err)
 		}
