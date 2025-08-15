@@ -98,7 +98,7 @@ func GetEnabledStrategiesForNode(conf *config.Configuration) ([]string, error) {
 // GetSpecificStrategyParam returns the parameter value for a specific strategy and whether it's enabled.
 // It takes the strategy name, a default enable status, and the configuration as input.
 // It returns the strategy parameter string, a boolean indicating if the strategy is enabled (or defaultEnable if not found/group disabled), and an error if the configuration is invalid.
-func GetSpecificStrategyParam(strategyName string, defaultEnable bool, conf *config.Configuration) (string, bool, error) {
+func GetSpecificStrategyParam(strategyName string, strategyParam string, defaultEnable bool, conf *config.Configuration) (string, bool, error) {
 	strategyGroup, err := validateConf(conf)
 	if err != nil {
 		return "", false, fmt.Errorf("invalid conf: %v", err)
@@ -110,7 +110,7 @@ func GetSpecificStrategyParam(strategyName string, defaultEnable bool, conf *con
 
 	for _, strategy := range strategyGroup.EnabledStrategies {
 		if strategy.Name != nil && *strategy.Name == strategyName {
-			return strategy.Parameters[strategyName], defaultEnable, nil
+			return strategy.Parameters[strategyParam], defaultEnable, nil
 		}
 	}
 

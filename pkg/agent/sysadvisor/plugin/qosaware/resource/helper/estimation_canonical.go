@@ -203,8 +203,6 @@ func GenerateUtilBasedCapacityOptions(dynamicConfig *dynamic.Configuration, capa
 	}
 }
 
-// EstimateUtilBasedCapacity capacity by taking into account the difference between the current
-// and target resource utilization of the workload pool
 func EstimateUtilBasedCapacity(options UtilBasedCapacityOptions, resourceSupply,
 	currentUtilization, lastCapacityResult float64,
 ) (float64, error) {
@@ -235,5 +233,37 @@ func EstimateUtilBasedCapacity(options UtilBasedCapacityOptions, resourceSupply,
 		result = math.Min(result, options.MaxCapacity)
 	}
 
+	return result, nil
+}
+
+func EstimateUtilBasedCapacityV2(options UtilBasedCapacityOptions, resourceSupply,
+	currentUtilization, _ float64,
+) (float64, error) {
+	/*
+		 oversold rate  ^
+						|-----
+						|     \
+						|      \
+						|       \
+						|        \
+						|         \
+						|          \
+						|           \
+						|            \
+						|             \
+						|              \
+						|               \-------
+						|----------------------> util
+						0          0.5          1
+	*/
+	// todo maxOversoldRate := options.MaxOversoldRate
+	maxOversoldRate := 3.
+	middle := 0.6
+	scaleFactor := 5.
+
+	overSoldRate := (maxOversoldRate-1)/2*(1-math.Tanh((currentUtilization-middle)*scaleFactor)) + 1
+	result := resourceSupply * overSoldRate
+	general.InfoS("estimate util based capacity", "currentUtilization", currentUtilization,
+		"overSoldRate", overSoldRate, "resourceSupply", resourceSupply, "result", result)
 	return result, nil
 }
