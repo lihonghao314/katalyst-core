@@ -102,10 +102,12 @@ func GetMetricThresholdsAll(metaServer *metaserver.MetaServer,
 func getMetricThresholdFromNPD(metaServer *metaserver.MetaServer) map[string]float64 {
 	res := map[string]float64{}
 	if metaServer.NPDFetcher == nil {
+		general.Infof("npd fetcher is nil")
 		return res
 	}
 	npd, err := metaServer.GetNPD(context.Background())
 	if err != nil {
+		general.Errorf("npd is nil %v", err)
 		return res
 	}
 	nodeMetrics := util.ExtractNPDScopedNodeMetrics(&npd.Status, ScopeMetricThreshold)
