@@ -257,6 +257,7 @@ func (cra *cpuResourceAdvisor) updateWithIsolationGuardian(tryIsolation bool) (
 			ResourceLowerBound:  cra.getRegionMinRequirement(r),
 			ReservedForReclaim:  cra.getRegionReservedForReclaim(r),
 			ReservedForAllocate: cra.getRegionReservedForAllocate(r),
+			CfsQuotaFactor:      cra.conf.GetDynamicConfiguration().CfsQuotaFactor,
 
 			AllowSharedCoresOverlapReclaimedCores: cra.allowSharedCoresOverlapReclaimedCores,
 		})

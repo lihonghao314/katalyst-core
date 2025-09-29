@@ -71,9 +71,13 @@ func (ha *HeadroomAssemblerCommon) getUtilBasedHeadroom(options helper.UtilBased
 		} else {
 			util = reclaimMetrics.CgroupCPUUsage / reclaimMetrics.Request
 		}
-		headroom, err = helper.EstimateUtilBasedCapacityV2(options, reclaimMetrics.ReclaimedCoresSupply,
-			util, lastReclaimedCPU,
-		)
+		// max supply is cfs_quota
+		// real supply is cfs_quota / factor
+		supply := reclaimMetrics.ReclaimedCoresSupply / ha.conf.GetDynamicConfiguration().CfsQuotaFactor
+		general.InfoS("show supply", "cfsQuotaSupply", reclaimMetrics.ReclaimedCoresSupply,
+			"factor", ha.conf.GetDynamicConfiguration().CfsQuotaFactor,
+			"supply", supply)
+		headroom, err = helper.EstimateUtilBasedCapacityV2(options, supply, util, lastReclaimedCPU)
 	} else {
 		util = reclaimMetrics.CgroupCPUUsage / reclaimMetrics.ReclaimedCoresSupply
 		headroom, err = helper.EstimateUtilBasedCapacity(options, reclaimMetrics.ReclaimedCoresSupply,

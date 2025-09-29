@@ -28,6 +28,7 @@ const (
 	defaultMaxReclaimedCoreUtilization    = 0
 	defaultMaxOversoldRate                = 1.2
 	defaultMaxHeadroomCapacityRate        = 1.
+	defaultCfsQuotaFactor                 = 2
 )
 
 type CPUHeadroomUtilBasedOptions struct {
@@ -36,6 +37,7 @@ type CPUHeadroomUtilBasedOptions struct {
 	MaxReclaimedCoreUtilization    float64
 	MaxOversoldRate                float64
 	MaxHeadroomCapacityRate        float64
+	CfsQuotaFactor                 float64
 }
 
 func NewCPUHeadroomUtilBasedOptions() *CPUHeadroomUtilBasedOptions {
@@ -45,6 +47,7 @@ func NewCPUHeadroomUtilBasedOptions() *CPUHeadroomUtilBasedOptions {
 		MaxReclaimedCoreUtilization:    defaultMaxReclaimedCoreUtilization,
 		MaxOversoldRate:                defaultMaxOversoldRate,
 		MaxHeadroomCapacityRate:        defaultMaxHeadroomCapacityRate,
+		CfsQuotaFactor:                 defaultCfsQuotaFactor,
 	}
 }
 
@@ -59,6 +62,8 @@ func (o *CPUHeadroomUtilBasedOptions) AddFlags(fs *pflag.FlagSet) {
 		"the max oversold rate of cpu headroom to the actual size of reclaimed_cores pool")
 	fs.Float64Var(&o.MaxHeadroomCapacityRate, "cpu-headroom-max-capacity-rate", o.MaxHeadroomCapacityRate,
 		"the max headroom capacity rate of cpu headroom to the total cpu capacity of node")
+	fs.Float64Var(&o.CfsQuotaFactor, "cpu-headroom-cfs-quota-factor", o.CfsQuotaFactor,
+		"")
 }
 
 func (o *CPUHeadroomUtilBasedOptions) ApplyTo(c *cpuheadroom.CPUUtilBasedConfiguration) error {
@@ -67,5 +72,6 @@ func (o *CPUHeadroomUtilBasedOptions) ApplyTo(c *cpuheadroom.CPUUtilBasedConfigu
 	c.MaxReclaimedCoreUtilization = o.MaxReclaimedCoreUtilization
 	c.MaxOversoldRate = o.MaxOversoldRate
 	c.MaxHeadroomCapacityRate = o.MaxHeadroomCapacityRate
+	c.CfsQuotaFactor = o.CfsQuotaFactor
 	return nil
 }

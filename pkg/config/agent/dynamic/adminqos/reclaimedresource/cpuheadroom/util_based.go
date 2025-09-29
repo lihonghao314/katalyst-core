@@ -24,6 +24,7 @@ type CPUUtilBasedConfiguration struct {
 	MaxReclaimedCoreUtilization    float64
 	MaxOversoldRate                float64
 	MaxHeadroomCapacityRate        float64
+	CfsQuotaFactor                 float64
 }
 
 func NewCPUUtilBasedConfiguration() *CPUUtilBasedConfiguration {

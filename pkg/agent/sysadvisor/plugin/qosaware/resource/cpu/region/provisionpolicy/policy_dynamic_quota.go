@@ -26,11 +26,13 @@ import (
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/metacache"
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/types"
 	"github.com/kubewharf/katalyst-core/pkg/config"
+	"github.com/kubewharf/katalyst-core/pkg/consts"
 	pkgconsts "github.com/kubewharf/katalyst-core/pkg/consts"
 	"github.com/kubewharf/katalyst-core/pkg/metaserver"
 	"github.com/kubewharf/katalyst-core/pkg/metrics"
 	"github.com/kubewharf/katalyst-core/pkg/util/cgroup/common"
 	"github.com/kubewharf/katalyst-core/pkg/util/general"
+	"github.com/kubewharf/katalyst-core/pkg/util/strategygroup"
 )
 
 type PolicyDynamicQuota struct {
@@ -73,7 +75,17 @@ func (p *PolicyDynamicQuota) updateForCPUQuota() error {
 	}
 	quota := general.MaxFloat64(float64(totalNUMACPUSize)*(indicator.Target-indicator.Current)+reclaimCoresCPUUsage, p.ReservedForReclaim)
 
-	general.InfoS("metrics", "cpuUsage", reclaimCoresCPUUsage, "totalNUMACPUSize", totalNUMACPUSize, "target", indicator.Target, "current", indicator.Current, "quota", quota, "numas", p.bindingNumas.String())
+	metricThresholdEnabled, err := strategygroup.IsStrategyEnabledForNode(consts.StrategyNameMetricThreshold, true, p.conf)
+	general.Infof("%v %v", consts.StrategyNameMetricThreshold, metricThresholdEnabled)
+	if metricThresholdEnabled {
+		factor := p.conf.GetDynamicConfiguration().CfsQuotaFactor
+		general.Infof("numa %v expand cfs quota %v by %v", p.bindingNumas.String(), quota, factor)
+		quota = quota * factor
+	}
+
+	general.InfoS("metrics", "cpuUsage", reclaimCoresCPUUsage, "totalNUMACPUSize", totalNUMACPUSize,
+		"target", indicator.Target, "current", indicator.Current, "quota", quota, "numas", p.bindingNumas.String(),
+	)
 
 	p.controlKnobAdjusted = types.ControlKnob{
 		configapi.ControlKnobReclaimedCoresCPUQuota: types.ControlKnobItem{
