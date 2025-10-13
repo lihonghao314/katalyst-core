@@ -196,7 +196,6 @@ func (bc *BorweinController) getUpdatedIndicators(indicators types.Indicator) ty
 			general.Infof("update indicator: %s target: %.2f by offset: %.2f",
 				indicatorName, indicatorValue.Target, bc.indicatorOffsets[indicatorName])
 			indicatorValue.Target += bc.indicatorOffsets[indicatorName]
-			print()
 		}
 
 		// restrict target in specific range
