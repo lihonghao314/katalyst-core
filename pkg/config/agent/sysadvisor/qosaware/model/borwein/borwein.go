@@ -39,7 +39,7 @@ func NewBorweinConfiguration() *BorweinConfiguration {
 				OffsetMin:    -0.12,
 				Version:      "default",
 				IndicatorMax: 0.85,
-				IndicatorMin: 0.55,
+				IndicatorMin: 0.5,
 			},
 		},
 		NodeFeatureNames:      []string{},
