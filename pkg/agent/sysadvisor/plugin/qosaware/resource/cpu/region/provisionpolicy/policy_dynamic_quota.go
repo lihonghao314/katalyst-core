@@ -26,11 +26,13 @@ import (
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/metacache"
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/types"
 	"github.com/kubewharf/katalyst-core/pkg/config"
+	"github.com/kubewharf/katalyst-core/pkg/consts"
 	pkgconsts "github.com/kubewharf/katalyst-core/pkg/consts"
 	"github.com/kubewharf/katalyst-core/pkg/metaserver"
 	"github.com/kubewharf/katalyst-core/pkg/metrics"
 	"github.com/kubewharf/katalyst-core/pkg/util/cgroup/common"
 	"github.com/kubewharf/katalyst-core/pkg/util/general"
+	"github.com/kubewharf/katalyst-core/pkg/util/strategygroup"
 )
 
 type PolicyDynamicQuota struct {
@@ -71,7 +73,15 @@ func (p *PolicyDynamicQuota) updateForCPUQuota() error {
 	if totalNUMACPUSize == 0 {
 		return fmt.Errorf("invalid cpu count per numa: %d, %d", p.metaServer.NumNUMANodes, p.metaServer.NumCPUs)
 	}
-	quota := general.MaxFloat64(float64(totalNUMACPUSize)*(indicator.Target-indicator.Current)+reclaimCoresCPUUsage, p.ReservedForReclaim)
+
+	metricThresholdEnabled, err := strategygroup.IsStrategyEnabledForNode(consts.StrategyNameMetricThreshold, true, p.conf)
+	general.Infof("%v %v", consts.StrategyNameMetricThreshold, metricThresholdEnabled)
+
+	reserved := p.ReservedForReclaim
+	if metricThresholdEnabled {
+		reserved = 0
+	}
+	quota := general.MaxFloat64(float64(totalNUMACPUSize)*(indicator.Target-indicator.Current)+reclaimCoresCPUUsage, reserved)
 
 	general.InfoS("metrics", "cpuUsage", reclaimCoresCPUUsage, "totalNUMACPUSize", totalNUMACPUSize, "target", indicator.Target, "current", indicator.Current, "quota", quota, "numas", p.bindingNumas.String())
 
