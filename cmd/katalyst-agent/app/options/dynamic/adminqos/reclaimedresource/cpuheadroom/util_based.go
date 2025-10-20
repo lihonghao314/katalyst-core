@@ -28,7 +28,7 @@ const (
 	defaultMaxReclaimedCoreUtilization    = 0
 	defaultMaxOversoldRate                = 1.2
 	defaultMaxHeadroomCapacityRate        = 1.
-	defaultCfsQuotaFactor                 = 2
+	defaultCfsQuotaFactor                 = 3
 )
 
 type CPUHeadroomUtilBasedOptions struct {
