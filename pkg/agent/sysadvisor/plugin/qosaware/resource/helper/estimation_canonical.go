@@ -282,7 +282,8 @@ func EstimateUtilBasedCapacityV2(options UtilBasedCapacityOptions, resourceSuppl
 	scaleFactor := 5.
 
 	overSoldRate := (maxOversoldRate-1)/2*(1-math.Tanh((currentUtilization-middle)*scaleFactor)) + 1
-	result := resourceSupply * overSoldRate
+	// extract 3 as a factor to specify usage / cfs_quota
+	result := resourceSupply * overSoldRate / 2
 	general.InfoS("estimate util based capacity", "currentUtilization", currentUtilization,
 		"overSoldRate", overSoldRate, "resourceSupply", resourceSupply, "result", result)
 	return result, nil
