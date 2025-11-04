@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 
 	apiconsts "github.com/kubewharf/katalyst-api/pkg/consts"
+	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/plugin/qosaware/resource/cpu/assembler/provisionassembler"
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/plugin/qosaware/resource/helper"
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/types"
 	"github.com/kubewharf/katalyst-core/pkg/consts"
@@ -45,6 +46,7 @@ const (
 func (ha *HeadroomAssemblerCommon) getUtilBasedHeadroom(options helper.UtilBasedCapacityOptions,
 	reclaimMetrics *metaserverHelper.ReclaimMetrics,
 	lastReclaimedCPUPerNumaForCalculate map[int]float64,
+	regionInfo *provisionassembler.ShareRegionInfo,
 ) (resource.Quantity, error) {
 	if reclaimMetrics == nil {
 		return resource.Quantity{}, fmt.Errorf("reclaimMetrics is nil")
@@ -59,37 +61,41 @@ func (ha *HeadroomAssemblerCommon) getUtilBasedHeadroom(options helper.UtilBased
 		lastReclaimedCPU += cpu
 	}
 
-	lastOverload := ha.overloadState[reclaimMetrics.CgroupPath]
-
-	headroom, overload, err := helper.EstimateUtilBasedCapacity(options, reclaimMetrics, lastReclaimedCPU, lastOverload)
-	if err != nil {
-		return resource.Quantity{}, err
-	}
-	ha.overloadState[reclaimMetrics.CgroupPath] = overload
-
-	general.InfoS("getUtilBasedHeadroom", "reclaimMetrics", reclaimMetrics,
-		"lastReclaimedCPUPerNumaForCalculate", lastReclaimedCPUPerNumaForCalculate, "headroom", headroom)
-
 	metricThresholdEnabled, err := strategygroup.IsStrategyEnabledForNode(consts.StrategyNameMetricThreshold, true, ha.conf)
 	general.Infof("%v %v", consts.StrategyNameMetricThreshold, metricThresholdEnabled)
-	var util float64
 	var headroom float64
-	if metricThresholdEnabled {
+	// when regionInfo is nil, use old headroom strategy
+	if metricThresholdEnabled && regionInfo != nil {
 		// use new headroom strategy
+		var util float64
 		if reclaimMetrics.Request == 0 {
 			util = 0
 		} else {
 			util = reclaimMetrics.CgroupCPUUsage / reclaimMetrics.Request
 		}
-		headroom, err = helper.EstimateUtilBasedCapacityV2(options, reclaimMetrics.ReclaimedCoresSupply,
-			util, lastReclaimedCPU,
+
+		numaQuotaAvg := regionInfo.MinReclaimedCoresCPUQuotaAvg
+
+		headroom, _, err = helper.EstimateUtilBasedCapacityV2(options, reclaimMetrics.ReclaimedCoresSupply,
+			util, lastReclaimedCPU, numaQuotaAvg,
 		)
 	} else {
-		util = reclaimMetrics.CgroupCPUUsage / reclaimMetrics.ReclaimedCoresSupply
-		headroom, err = helper.EstimateUtilBasedCapacity(options, reclaimMetrics.ReclaimedCoresSupply,
-			util, lastReclaimedCPU,
-		)
+		lastOverload := ha.overloadState[reclaimMetrics.CgroupPath]
+
+		headroomNew, overload, err := helper.EstimateUtilBasedCapacity(options, reclaimMetrics, lastReclaimedCPU, lastOverload)
+		headroom = headroomNew
+		if err != nil {
+			return resource.Quantity{}, err
+		}
+		ha.overloadState[reclaimMetrics.CgroupPath] = overload
 	}
+
+	if err != nil {
+		return resource.Quantity{}, err
+	}
+
+	general.InfoS("getUtilBasedHeadroom", "reclaimMetrics", reclaimMetrics,
+		"lastReclaimedCPUPerNumaForCalculate", lastReclaimedCPUPerNumaForCalculate, "headroom", headroom)
 
 	return *resource.NewMilliQuantity(int64(headroom*1000), resource.DecimalSI), nil
 }

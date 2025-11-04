@@ -186,7 +186,7 @@ func (pa *ProvisionAssemblerCommon) assembleWithoutNUMAExclusivePool(
 	result *types.InternalCPUCalculationResult,
 ) error {
 	shareRegions := regionHelper.GetRegions(numaID, configapi.QoSRegionTypeShare)
-	shareInfo, err := extractShareRegionInfo(shareRegions)
+	shareInfo, err := ExtractShareRegionInfo(shareRegions)
 	if err != nil {
 		return err
 	}
@@ -356,7 +356,7 @@ func (pa *ProvisionAssemblerCommon) assembleWithoutNUMAExclusivePool(
 	return nil
 }
 
-func getPoolSizeRequirements(info shareRegionInfo, expand bool) map[string]int {
+func getPoolSizeRequirements(info ShareRegionInfo, expand bool) map[string]int {
 	result := make(map[string]int)
 	for name, reclaimEnable := range info.shareReclaimEnable {
 		if !reclaimEnable || expand {
@@ -368,23 +368,25 @@ func getPoolSizeRequirements(info shareRegionInfo, expand bool) map[string]int {
 	return result
 }
 
-type shareRegionInfo struct {
-	shareRequirements         map[string]int
-	shareRequests             map[string]int
-	shareReclaimEnable        map[string]bool
-	minReclaimedCoresCPUQuota float64
+type ShareRegionInfo struct {
+	shareRequirements            map[string]int
+	shareRequests                map[string]int
+	shareReclaimEnable           map[string]bool
+	minReclaimedCoresCPUQuota    float64
+	MinReclaimedCoresCPUQuotaAvg float64
 }
 
-func extractShareRegionInfo(shareRegions []region.QoSRegion) (shareRegionInfo, error) {
+func ExtractShareRegionInfo(shareRegions []region.QoSRegion) (ShareRegionInfo, error) {
 	shareRequirements := make(map[string]int)
 	shareRequests := make(map[string]int)
 	shareReclaimEnable := make(map[string]bool)
 	minReclaimedCoresCPUQuota := float64(-1)
+	minReclaimedCoresCPUQuotaAvg := float64(-1)
 
 	for _, r := range shareRegions {
 		controlKnob, err := r.GetProvision()
 		if err != nil {
-			return shareRegionInfo{}, err
+			return ShareRegionInfo{}, err
 		}
 		shareRequirements[r.OwnerPoolName()] = general.Max(1, int(controlKnob[configapi.ControlKnobNonReclaimedCPURequirement].Value))
 		shareRequests[r.OwnerPoolName()] = general.Max(1, int(math.Ceil(r.GetPodsRequest())))
@@ -394,13 +396,21 @@ func extractShareRegionInfo(shareRegions []region.QoSRegion) (shareRegionInfo, e
 				minReclaimedCoresCPUQuota = quota.Value
 			}
 		}
+		// todo extract
+		if quota, ok := controlKnob["reclaimed-cores-cpu-quota-avg"]; ok {
+			if minReclaimedCoresCPUQuotaAvg == -1 || quota.Value < minReclaimedCoresCPUQuotaAvg {
+				minReclaimedCoresCPUQuotaAvg = quota.Value
+			}
+		}
+
 	}
 
-	return shareRegionInfo{
-		shareRequirements:         shareRequirements,
-		shareRequests:             shareRequests,
-		shareReclaimEnable:        shareReclaimEnable,
-		minReclaimedCoresCPUQuota: minReclaimedCoresCPUQuota,
+	return ShareRegionInfo{
+		shareRequirements:            shareRequirements,
+		shareRequests:                shareRequests,
+		shareReclaimEnable:           shareReclaimEnable,
+		minReclaimedCoresCPUQuota:    minReclaimedCoresCPUQuota,
+		MinReclaimedCoresCPUQuotaAvg: minReclaimedCoresCPUQuotaAvg,
 	}, nil
 }
 

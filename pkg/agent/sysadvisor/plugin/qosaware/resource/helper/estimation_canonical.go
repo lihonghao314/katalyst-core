@@ -257,8 +257,8 @@ func EstimateUtilBasedCapacity(options UtilBasedCapacityOptions, reclaimMetrics 
 }
 
 func EstimateUtilBasedCapacityV2(options UtilBasedCapacityOptions, resourceSupply,
-	currentUtilization, _ float64,
-) (float64, error) {
+	currentUtilization, _ float64, quotaAvg float64,
+) (float64, bool, error) {
 	/*
 		 oversold rate  ^
 						|-----
@@ -282,9 +282,11 @@ func EstimateUtilBasedCapacityV2(options UtilBasedCapacityOptions, resourceSuppl
 	scaleFactor := 5.
 
 	overSoldRate := (maxOversoldRate-1)/2*(1-math.Tanh((currentUtilization-middle)*scaleFactor)) + 1
-	// extract 3 as a factor to specify usage / cfs_quota
-	result := resourceSupply * overSoldRate / 2
+
+	// quotaAvg is target - current
+	// quota(supply) is target_max - current
+	result := quotaAvg * overSoldRate
 	general.InfoS("estimate util based capacity", "currentUtilization", currentUtilization,
-		"overSoldRate", overSoldRate, "resourceSupply", resourceSupply, "result", result)
-	return result, nil
+		"overSoldRate", overSoldRate, "resourceSupply", resourceSupply, "quotaAvg", quotaAvg, "result", result)
+	return result, false, nil
 }

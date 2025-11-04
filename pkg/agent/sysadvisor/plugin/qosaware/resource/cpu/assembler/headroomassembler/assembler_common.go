@@ -22,8 +22,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/kubewharf/katalyst-api/pkg/apis/config/v1alpha1"
 	"github.com/kubewharf/katalyst-core/pkg/agent/qrm-plugins/commonstate"
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/metacache"
+	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/plugin/qosaware/resource/cpu/assembler/provisionassembler"
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/plugin/qosaware/resource/cpu/region"
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/plugin/qosaware/resource/helper"
 	"github.com/kubewharf/katalyst-core/pkg/config"
@@ -184,6 +186,8 @@ func (ha *HeadroomAssemblerCommon) getHeadroomByUtil() (resource.Quantity, map[i
 		return resource.Quantity{}, nil, err
 	}
 
+	regionHelper := provisionassembler.NewRegionMapHelper(*ha.regionMap)
+
 	// get headroom per NUMA
 	for _, numaID := range bindingNUMAs {
 		cpuSet, ok := reclaimPoolInfo.TopologyAwareAssignments[numaID]
@@ -204,7 +208,11 @@ func (ha *HeadroomAssemblerCommon) getHeadroomByUtil() (resource.Quantity, map[i
 		numaOptions := helper.GenerateUtilBasedCapacityOptions(dynamicConfig, float64(ha.metaServer.NUMAToCPUs.CPUSizeInNUMAs(numaID)))
 		lastReclaimedCPUPerNumaForCalculate := make(map[int]float64)
 		lastReclaimedCPUPerNumaForCalculate[numaID] = reclaimedCPUs[numaID]
-		headroom, err := ha.getUtilBasedHeadroom(numaOptions, reclaimMetrics, lastReclaimedCPUPerNumaForCalculate)
+
+		regions := regionHelper.GetRegions(numaID, v1alpha1.QoSRegionTypeShare)
+		regionInfo, _ := provisionassembler.ExtractShareRegionInfo(regions)
+
+		headroom, err := ha.getUtilBasedHeadroom(numaOptions, reclaimMetrics, lastReclaimedCPUPerNumaForCalculate, &regionInfo)
 		if err != nil {
 			return resource.Quantity{}, nil, fmt.Errorf("get util-based headroom failed with numa %d: %v", numaID, err)
 		}
@@ -239,7 +247,7 @@ func (ha *HeadroomAssemblerCommon) getHeadroomByUtil() (resource.Quantity, map[i
 		}
 
 		globalOptions := helper.GenerateUtilBasedCapacityOptions(dynamicConfig, float64(totalCPUSize))
-		headroom, err := ha.getUtilBasedHeadroom(globalOptions, reclaimMetrics, lastReclaimedCPUPerNumaForCalculate)
+		headroom, err := ha.getUtilBasedHeadroom(globalOptions, reclaimMetrics, lastReclaimedCPUPerNumaForCalculate, nil)
 		if err != nil {
 			return resource.Quantity{}, nil, fmt.Errorf("get util-based headroom failed: %v", err)
 		}
