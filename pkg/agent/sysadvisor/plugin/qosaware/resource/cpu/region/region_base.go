@@ -155,11 +155,13 @@ func (r *provisionPolicyResult) newRegulator(name v1alpha1.ControlKnobName) regu
 func (r *provisionPolicyResult) getControlKnob() types.ControlKnob {
 	controlKnob := make(types.ControlKnob)
 	for name, regulator := range r.controlKnobValueRegulators {
+		//general.InfoS("regulator", "name", name, "regulator", regulator)
 		controlKnob[name] = types.ControlKnobItem{
 			Value:  float64(regulator.GetRequirement()),
 			Action: types.ControlKnobActionNone,
 		}
 	}
+	//general.InfoS("get control knob", "controlKnob", controlKnob)
 	return controlKnob
 }
 
@@ -464,6 +466,13 @@ func (r *QoSRegionBase) GetProvision() (types.ControlKnob, error) {
 			}
 		}
 		// TODO: return ctrl knobs of all policies
+		res := result.getControlKnob()
+		general.InfoS("return provision result",
+			"region", r.name,
+			"numas", r.bindingNumas.String(),
+			"policy", internal.name,
+			"controlKnob", res,
+		)
 		return result.getControlKnob(), nil
 	}
 

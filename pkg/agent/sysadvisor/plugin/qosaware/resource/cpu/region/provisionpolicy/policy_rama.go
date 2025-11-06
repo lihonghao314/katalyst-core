@@ -29,9 +29,13 @@ import (
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/plugin/qosaware/resource/helper"
 	"github.com/kubewharf/katalyst-core/pkg/agent/sysadvisor/types"
 	"github.com/kubewharf/katalyst-core/pkg/config"
+	"github.com/kubewharf/katalyst-core/pkg/consts"
+	pkgconsts "github.com/kubewharf/katalyst-core/pkg/consts"
 	"github.com/kubewharf/katalyst-core/pkg/metaserver"
 	"github.com/kubewharf/katalyst-core/pkg/metrics"
+	"github.com/kubewharf/katalyst-core/pkg/util/cgroup/common"
 	"github.com/kubewharf/katalyst-core/pkg/util/general"
+	"github.com/kubewharf/katalyst-core/pkg/util/strategygroup"
 )
 
 const (
@@ -157,6 +161,8 @@ func (p *PolicyRama) Update() error {
 		},
 	}
 
+	p.appendQuotaAvg()
+
 	return nil
 }
 
@@ -204,4 +210,32 @@ func (p *PolicyRama) sanityCheck() error {
 	}
 
 	return errors.NewAggregate(errList)
+}
+
+// redundant...
+func (p *PolicyRama) appendQuotaAvg() {
+	indicator := p.Indicators[string(workloadv1alpha1.ServiceSystemIndicatorNameCPUUsageRatio)]
+	reclaimPath := common.GetReclaimRelativeRootCgroupPath(p.conf.ReclaimRelativeRootCgroupPath, p.bindingNumas.ToSliceInt()[0])
+	data, _ := p.metaServer.GetCgroupMetric(reclaimPath, pkgconsts.MetricCPUUsageCgroup)
+	reclaimCoresCPUUsage := data.Value
+
+	totalNUMACPUSize := p.metaServer.NUMAToCPUs.CPUSizeInNUMAs(p.bindingNumas.ToSliceNoSortInt()...)
+
+	metricThresholdEnabled, _ := strategygroup.IsStrategyEnabledForNode(consts.StrategyNameMetricThreshold, true, p.conf)
+	general.Infof("%v %v", consts.StrategyNameMetricThreshold, metricThresholdEnabled)
+
+	reserved := p.ReservedForReclaim
+	if metricThresholdEnabled {
+		reserved = 0
+	}
+
+	if metricThresholdEnabled {
+		quotaAvg := general.MaxFloat64(float64(totalNUMACPUSize)*(indicator.Target-indicator.Current)+reclaimCoresCPUUsage, reserved)
+		// todo extract
+		general.InfoS("configure quotaAvg", "quotaAvg", quotaAvg, "numas", p.bindingNumas.String(), "region", p.regionName)
+		p.controlKnobAdjusted["reclaimed-cores-cpu-quota-avg"] = types.ControlKnobItem{
+			Value:  quotaAvg,
+			Action: types.ControlKnobActionNone,
+		}
+	}
 }

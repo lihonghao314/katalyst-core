@@ -382,7 +382,7 @@ func ExtractShareRegionInfo(shareRegions []region.QoSRegion) (ShareRegionInfo, e
 	shareReclaimEnable := make(map[string]bool)
 	minReclaimedCoresCPUQuota := float64(-1)
 	minReclaimedCoresCPUQuotaAvg := float64(-1)
-
+	var regionNumas string
 	for _, r := range shareRegions {
 		controlKnob, err := r.GetProvision()
 		if err != nil {
@@ -397,13 +397,22 @@ func ExtractShareRegionInfo(shareRegions []region.QoSRegion) (ShareRegionInfo, e
 			}
 		}
 		// todo extract
+		general.InfoS("extract region control knob",
+			"controlKnob", controlKnob,
+			"numas", r.GetBindingNumas().String(),
+			"region", r.Name(),
+		)
 		if quota, ok := controlKnob["reclaimed-cores-cpu-quota-avg"]; ok {
 			if minReclaimedCoresCPUQuotaAvg == -1 || quota.Value < minReclaimedCoresCPUQuotaAvg {
 				minReclaimedCoresCPUQuotaAvg = quota.Value
 			}
 		}
-
+		regionNumas = r.GetBindingNumas().String()
 	}
+	general.InfoS("extract share region info",
+		"minReclaimedCoresCPUQuota", minReclaimedCoresCPUQuota,
+		"MinReclaimedCoresCPUQuotaAvg", minReclaimedCoresCPUQuotaAvg,
+		"numas", regionNumas)
 
 	return ShareRegionInfo{
 		shareRequirements:            shareRequirements,

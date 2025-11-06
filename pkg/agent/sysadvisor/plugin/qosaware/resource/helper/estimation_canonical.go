@@ -277,9 +277,9 @@ func EstimateUtilBasedCapacityV2(options UtilBasedCapacityOptions, resourceSuppl
 						0          0.5          1
 	*/
 	// todo maxOversoldRate := options.MaxOversoldRate
-	maxOversoldRate := 3.
+	maxOversoldRate := 2.5
 	middle := 0.6
-	scaleFactor := 5.
+	scaleFactor := 1.5
 
 	overSoldRate := (maxOversoldRate-1)/2*(1-math.Tanh((currentUtilization-middle)*scaleFactor)) + 1
 

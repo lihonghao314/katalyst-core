@@ -84,15 +84,16 @@ func (p *PolicyDynamicQuota) updateForCPUQuota() error {
 	quota := general.MaxFloat64(float64(totalNUMACPUSize)*(indicator.Target-indicator.Current)+reclaimCoresCPUUsage, reserved)
 
 	if metricThresholdEnabled {
-		indicatorMax := 0.75
+		indicatorMax := 0.73
 		quotaMax := general.MaxFloat64(float64(totalNUMACPUSize)*(indicatorMax-indicator.Current)+reclaimCoresCPUUsage, reserved)
 		//quota = math.Min(quota*3, quotaMax)
-		general.InfoS("configure quotaMax", "quotaMax", quotaMax, "indicatorMax", indicatorMax, "indicatorCurrent", indicator.Current)
+		general.InfoS("configure quotaMax", "quotaMax", quotaMax, "indicatorMax", indicatorMax,
+			"indicatorCurrent", indicator.Current, "region", p.regionName)
 		quota = quotaMax
 	}
 
 	general.InfoS("metrics", "cpuUsage", reclaimCoresCPUUsage, "totalNUMACPUSize", totalNUMACPUSize,
-		"target", indicator.Target, "current", indicator.Current, "quota", quota, "numas", p.bindingNumas.String())
+		"target", indicator.Target, "current", indicator.Current, "quota", quota, "numas", p.bindingNumas.String(), "region", p.regionName)
 
 	p.controlKnobAdjusted = types.ControlKnob{
 		configapi.ControlKnobReclaimedCoresCPUQuota: types.ControlKnobItem{
@@ -104,6 +105,7 @@ func (p *PolicyDynamicQuota) updateForCPUQuota() error {
 	if metricThresholdEnabled {
 		quotaAvg := general.MaxFloat64(float64(totalNUMACPUSize)*(indicator.Target-indicator.Current)+reclaimCoresCPUUsage, reserved)
 		// todo extract
+		general.InfoS("configure quotaAvg", "quotaAvg", quotaAvg, "numas", p.bindingNumas.String(), "region", p.regionName)
 		p.controlKnobAdjusted["reclaimed-cores-cpu-quota-avg"] = types.ControlKnobItem{
 			Value:  quotaAvg,
 			Action: types.ControlKnobActionNone,
