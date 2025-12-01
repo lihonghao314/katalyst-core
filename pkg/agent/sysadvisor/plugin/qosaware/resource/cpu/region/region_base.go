@@ -794,6 +794,7 @@ func (r *QoSRegionBase) getIndicators() (types.Indicator, error) {
 	} else {
 		return indicators, nil
 	}
+	// protection
 }
 
 // getPodIndicatorTarget gets pod indicator target by given pod uid and indicator name,
