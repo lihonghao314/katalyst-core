@@ -317,6 +317,9 @@ func InsertSPDBusinessIndicatorStatus(status *apiworkload.ServiceProfileDescript
 func InsertSPDAggMetricsStatus(status *apiworkload.ServiceProfileDescriptorStatus,
 	serviceAggPodMetrics *apiworkload.AggPodMetrics,
 ) {
+	general.InfoS("[InsertSPDAggMetricsStatus] insert metrics", "status", status,
+		"serviceAggPodMetrics", serviceAggPodMetrics)
+
 	if status == nil || serviceAggPodMetrics == nil {
 		return
 	}
@@ -327,10 +330,15 @@ func InsertSPDAggMetricsStatus(status *apiworkload.ServiceProfileDescriptorStatu
 
 	for i := range status.AggMetrics {
 		if status.AggMetrics[i].Scope == serviceAggPodMetrics.Scope && status.AggMetrics[i].Aggregator == serviceAggPodMetrics.Aggregator {
+			general.InfoS("[InsertSPDAggMetricsStatus] found equal status",
+				"orig", status.AggMetrics[i],
+				"new", serviceAggPodMetrics)
 			status.AggMetrics[i].Items = serviceAggPodMetrics.Items
 			return
 		}
 	}
+	general.InfoS("[InsertSPDAggMetricsStatus] append new item", "serviceAggPodMetrics", serviceAggPodMetrics)
+
 	status.AggMetrics = append(status.AggMetrics, *serviceAggPodMetrics)
 }
 

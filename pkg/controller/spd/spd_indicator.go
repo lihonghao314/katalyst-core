@@ -140,13 +140,12 @@ func (sc *SPDController) syncStatus(nn types.NamespacedName) {
 			metrics.MetricTypeNameRaw, metrics.MetricTag{Key: "name", Val: nn.String()})
 	}()
 
-	klog.V(5).Infof("[syncIndicatorStatus] get %v", nn.String())
-
 	status := sc.indicatorManager.GetIndicatorStatus(nn)
 	if status == nil {
 		klog.Warningf("[syncIndicatorStatus] spd status %v is nil", nn.String())
 		return
 	}
+	klog.V(5).Infof("[syncIndicatorStatus] get %v status %v", nn.String(), status)
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		spd, err := sc.spdLister.ServiceProfileDescriptors(nn.Namespace).Get(nn.Name)
@@ -158,6 +157,7 @@ func (sc *SPDController) syncStatus(nn types.NamespacedName) {
 		spdCopy := spd.DeepCopy()
 		sc.mergeIndicatorStatus(spdCopy, *status)
 		if apiequality.Semantic.DeepEqual(spd.Status, spdCopy.Status) {
+			klog.V(5).Infof("[syncIndicatorStatus] %v status is equal", nn.String())
 			return nil
 		}
 
@@ -165,6 +165,9 @@ func (sc *SPDController) syncStatus(nn types.NamespacedName) {
 			klog.Errorf("[syncIndicatorStatus] failed to update spd status for %s: %v", nn.String(), err)
 			return err
 		}
+		klog.V(5).InfoS("[syncIndicatorStatus] update success",
+			"nn", nn.String(), "spd", spdCopy.Status,
+		)
 
 		_ = sc.metricsEmitter.StoreInt64(metricsNameSyncIndicatorStatus, 1, metrics.MetricTypeNameCount, metrics.MetricTag{
 			Key: "status", Val: "success",

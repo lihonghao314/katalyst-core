@@ -24,6 +24,7 @@ import (
 
 	apiworkload "github.com/kubewharf/katalyst-api/pkg/apis/workload/v1alpha1"
 	"github.com/kubewharf/katalyst-core/pkg/util"
+	"github.com/kubewharf/katalyst-core/pkg/util/general"
 )
 
 const (
@@ -163,6 +164,7 @@ func (u *IndicatorManager) UpdateAggMetrics(nn types.NamespacedName, aggMetrics 
 		insert = true
 		u.statusMap[nn] = initServiceProfileDescriptorStatus()
 	}
+	general.InfoS("[UpdateAggMetrics] start to insert", "nn", nn.String(), "aggMetrics", aggMetrics)
 	for _, aggMetric := range aggMetrics {
 		util.InsertSPDAggMetricsStatus(u.statusMap[nn], &aggMetric)
 	}
@@ -209,6 +211,7 @@ func (u *IndicatorManager) GetIndicatorStatus(nn types.NamespacedName) *apiworkl
 		klog.Warningf("spd status doesn't exist for key: %s", nn.String())
 		return nil
 	}
+	klog.InfoS("get spd status success", "nn", nn, "status", status)
 	return status
 }
 
