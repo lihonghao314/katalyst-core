@@ -23,6 +23,15 @@ import (
 	"strings"
 	"time"
 
+	apiconfig "github.com/kubewharf/katalyst-api/pkg/apis/config/v1alpha1"
+	apiworkload "github.com/kubewharf/katalyst-api/pkg/apis/workload/v1alpha1"
+	apiListers "github.com/kubewharf/katalyst-api/pkg/client/listers/workload/v1alpha1"
+	katalystbase "github.com/kubewharf/katalyst-core/cmd/base"
+	"github.com/kubewharf/katalyst-core/pkg/config/controller"
+	indicatorplugin "github.com/kubewharf/katalyst-core/pkg/controller/spd/indicator-plugin"
+	katalystmetrics "github.com/kubewharf/katalyst-core/pkg/metrics"
+	"github.com/kubewharf/katalyst-core/pkg/util"
+	"github.com/kubewharf/katalyst-core/pkg/util/native"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,17 +44,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	metrics "k8s.io/metrics/pkg/apis/metrics/v1beta1"
-
-	apiconfig "github.com/kubewharf/katalyst-api/pkg/apis/config/v1alpha1"
-	apiworkload "github.com/kubewharf/katalyst-api/pkg/apis/workload/v1alpha1"
-	apiListers "github.com/kubewharf/katalyst-api/pkg/client/listers/workload/v1alpha1"
-	katalystbase "github.com/kubewharf/katalyst-core/cmd/base"
-	"github.com/kubewharf/katalyst-core/pkg/config/controller"
-	indicatorplugin "github.com/kubewharf/katalyst-core/pkg/controller/spd/indicator-plugin"
-	katalystmetrics "github.com/kubewharf/katalyst-core/pkg/metrics"
-	"github.com/kubewharf/katalyst-core/pkg/util"
-	"github.com/kubewharf/katalyst-core/pkg/util/native"
 )
 
 const (
@@ -184,7 +182,7 @@ func (p *ResourcePortraitIndicatorPlugin) emitMetrics() {
 				continue
 			}
 
-			var currentMetric *metrics.PodMetrics
+			var currentMetric *apiworkload.PodMetrics
 			now := time.Now()
 			for _, item := range aggMetrics.Items {
 				if now.After(item.Timestamp.Time) {
